@@ -1,5 +1,4 @@
 // https://spacetoast.dev/tech.html
-#define BREAD_BASE64_IMPLEMENTATION
 #ifndef BREAD_BASE64_IMPLEMENTATION
 // header
 #ifndef BREAD_BASE64_H
