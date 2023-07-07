@@ -18,7 +18,7 @@ Some of them may depend on POSIX rather than pure ISO C,
 in which case the below list will note this.
 
 ## Library List
-* base64.h (0.1): implementation of "base64" compliant to RFC 4648
+* base64.h (0.2): implementation of "base64" and "base64url" compliant to RFC 4648
 * stdiox.h (0.1): extensions to ISO C stdio.h
 
 ## How do I use them?
