@@ -41,3 +41,24 @@ Then in exactly one `.c`:
 
 You can combine the implementations of all of the libraries in a single file,
 they do not conflict with one another.
+
+## Contributing
+This repository follows the following contribution model:
+* You can submit bugfixes for existing headers.
+  When doing so, you should allow pushes from maintainers,
+  your code *will* be changed.
+* You can request additional features to existing headers.
+  Depending on the complexity involved, those features may be implemented.
+* You can request new headers.
+  Do not expect those to be added any time soon.
+* Benchmarks and Tests (in `/bench` and `/test`) are fair game.
+  As long as they run on my machine, they will generally be merged.
+  Make sure you add usage instructions at the top of the file.
+
+Unless your code simplifies (*conceptually*, not computationally,
+though computational simplification patches will be accepted if they do not
+negatively affect conceptual simplicity) the existing code,
+they will not be accepted.
+However, if they do, they often will be.
+
+Additionally, make sure to avoid defines whenever possible.
