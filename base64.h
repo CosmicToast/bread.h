@@ -6,6 +6,9 @@
 #include <stdio.h>
 // the "u" prefix designates "base64url" functions, as oppposed to "base64"
 
+#define EBB64AL 129 // input is not in the alphabet
+#define EBB64DE 130 // input contains a padding error
+
 // = encoders
 // stream -> stream
 void be64ss(FILE *dst, FILE *src);
@@ -15,28 +18,36 @@ void be64bs(FILE *dst, const char *src, size_t n);
 void ube64bs(FILE *dst, const char *src, size_t n);
 
 // = decoders
+// note that these returning 0 and setting errno does not necessarily mean
+// there was an error.
+
 // stream -> stream
-void bd64ss(FILE *dst, FILE *src);
-void ubd64ss(FILE *dst, FILE *src);
+int bd64ss(FILE *dst, FILE *src);
+int ubd64ss(FILE *dst, FILE *src);
 // buffer -> stream
-void bd64bs(FILE *dst, const char *src, size_t n);
-void ubd64bs(FILE *dst, const char *src, size_t n);
+int bd64bs(FILE *dst, const char *src, size_t n);
+int ubd64bs(FILE *dst, const char *src, size_t n);
 #endif // BREAD_BASE64_H
 
 #else // BREAD_BASE64_IMPLEMENTATION
 // implementation
+#define EBB64AL 129
+#define EBB64DE 130
+
+#include <errno.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 static const char b64a[] = {
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
 	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/', 0
 };
 static const char ub64a[] = {
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
 	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_'
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_', 0
 };
 
 // encode a 64-based chunk, this is the workhorse of the encoders
@@ -65,6 +76,62 @@ static inline int abe64c(char dst[static 4], uint32_t chunk, size_t n, const cha
 			return 3;
 	}
 	return n;
+}
+
+// this allows the library to be used with arbitrary alphabets, but is slower
+// essentially, we iterate over the alphabet looking for v
+// we presume "=" is always the padding character
+static inline char idxof(char v, const char alph[static 64]) {
+	if (v == '=') return -1;
+	const char *ptr = alph;
+	while (*ptr++ != v) {
+		if (!*ptr) return -2;
+	}
+	return --ptr - alph;
+}
+
+// decode a 64-based chunk, this is the workhorse of the encoders
+// returns how many bytes you can read (starting from 0)
+static inline int abd64c(char dst[static 3], const char _src[static 4], const char alph[static 64]) {
+	// if you wanted to make the ss family faster, you could remove this and the const qualifier
+	char src[4]; memcpy(src, _src, 4);
+	src[0] = idxof(src[0], alph);
+	src[1] = idxof(src[1], alph);
+	src[2] = idxof(src[2], alph);
+	src[3] = idxof(src[3], alph);
+	if (src[0] == -2 || src[1] == -2 || src[2] == -2 || src[3] == -2) {
+		errno = EBB64AL;
+		return 0;
+	}
+	if (src[0] == -1 || src[1] == -1) {
+		errno = EBB64DE;
+		return 0;
+	}
+	if (src[2] == -1 && src[3] != -1) {
+		errno = EBB64DE;
+		return 0;
+	}
+	uint32_t chunk = (src[0] << 18) |
+					 (src[1] << 12) |
+					 (src[2] <<  6) |
+					 (src[3]      );
+	// this byte always gets encoded
+	dst[0] = chunk >> 16 & 0xff;
+	// if byte 3 is =, we already verified that so is byte 4,
+	// so only encode the 2nd byte
+	if (src[2] == -1) {
+		dst[1] = chunk >> 8  & (0xff >> 4);
+		return 2;
+	}
+	// byte 2 is always encoded now
+	dst[1] = chunk >> 8  & 0xff;
+	// byte 3 is encoded differently if there's padding on the final input byte
+	if (src[3] == -1) {
+		dst[2] = chunk & (0xff >> 6);
+	} else {
+		dst[2] = chunk & 0xff;
+	}
+	return 3;
 }
 
 static inline int abe64cs(FILE *dst,
@@ -126,5 +193,68 @@ void be64bs(FILE *dst, const char *src, size_t n) {
 
 void ube64bs(FILE *dst, const char *src, size_t n) {
 	return abe64bs(dst, src, n, ub64a);
+}
+
+// decode stream with alphabet
+inline static int abd64ss(FILE *dst, FILE *src, const char alph[static 64]) {
+	char buf[4];
+	char out[3];
+	int r;
+	while ((r = fread(buf, 4, 1, src))) {
+		r = abd64c(out, buf, alph);
+		if (!r) break;
+		switch (r) {
+		case 2: // final byte with double = padding
+			fprintf(dst, "%c%c", out[0], out[1]);
+			return 1;
+		case 3: // normal
+			fprintf(dst, "%c%c%c", out[0], out[1], out[2]);
+			break;
+		}
+	}
+	// error or eof
+	if (feof(src)) return 1;
+	// if it's an error, we already set errno either in fread or in abd64c
+	// note that there may be "extra" data after the end
+	// as such, there may be an erronious EBB64AL errno
+	return 0;
+}
+
+// decode buffer with alphabet
+inline static int abd64bs(FILE *dst, const char *src, size_t n, const char alph[static 64]) {
+	size_t ptr = 0;
+	char out[3];
+	int r;
+	// note that there may be extra data in the buffer
+	while ((n - ptr) / 4) {
+		r = abd64c(out, src + ptr, alph);
+		ptr += 4;
+		switch (r) {
+			case 0: // error
+				return 0;
+			case 2: // final byte with double = padding
+				fprintf(dst, "%c%c", out[0], out[1]);
+				return 1;
+			case 3:
+				fprintf(dst, "%c%c%c", out[0], out[1], out[2]);
+				break;
+		}
+	}
+	return 1; // eof
+}
+
+int bd64ss(FILE *dst, FILE *src) {
+	return abd64ss(dst, src, b64a);
+}
+int ubd64ss(FILE *dst, FILE *src) {
+	return abd64ss(dst, src, ub64a);
+}
+
+int bd64bs(FILE *dst, const char *src, size_t n) {
+	return abd64bs(dst, src, n, b64a);
+}
+
+int ubd64bs(FILE *dst, const char *src, size_t n) {
+	return abd64bs(dst, src, n, ub64a);
 }
 #endif // BREAD_BASE64_IMPLEMENTATION
