@@ -200,7 +200,14 @@ inline static size_t abd64ss(FILE *dst, FILE *src, const char alph[static 64]) {
 	int r;
 	while ((r = fread(buf, 4, 1, src))) {
 		r = abd64c(out, buf, alph);
-		if (!r) break;
+		if (!r) {
+			// note that this is not portable, ISO C99 only guarantees
+			// one byte of ungetc
+			// if this is a concern, use the buffered flavor
+			ungetc(buf[3], src); ungetc(buf[2], src);
+			ungetc(buf[1], src); ungetc(buf[0], src);
+			break;
+		}
 		proc += 4;
 		switch (r) {
 		case 1: // final byte with double = padding
