@@ -1,13 +1,12 @@
 // https://spacetoast.dev/tech.html
-#ifndef READALL_BUFSIZE
-#define READALL_BUFSIZE 1024
-#endif
-
-#ifndef BREAD_STDIOX_IMPLEMENTATION
-// header
+// = header
 #ifndef BREAD_STDIOX_H
 #define BREAD_STDIOX_H
 #include <stdio.h>
+
+#ifndef READALL_BUFSIZE
+#define READALL_BUFSIZE 1024
+#endif
 // read from src into dst until hitting EOF
 // dst will be allocated using malloc and realloc, READALL_BUFSIZE at a time
 // does not call fseek, so you can use this with pipes/sockets/etc
@@ -15,7 +14,8 @@
 size_t readall(char **dst, FILE *src);
 #endif // BREAD_STDIOX_H
 
-#else // BREAD_STDIOX_IMPLEMENTATION
+// = implementation
+#ifdef BREAD_STDIOX_IMPLEMENTATION
 #include <stdio.h>
 #include <stdlib.h>
 

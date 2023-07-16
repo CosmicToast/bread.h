@@ -1,6 +1,5 @@
 // https://spacetoast.dev/tech.html
-#ifndef BREAD_BASE64_IMPLEMENTATION
-// header
+// = header
 #ifndef BREAD_BASE64_H
 #define BREAD_BASE64_H
 #include <stdio.h>
@@ -26,8 +25,8 @@ size_t bd64bs(FILE *dst, const char *src, size_t n);
 size_t ubd64bs(FILE *dst, const char *src, size_t n);
 #endif // BREAD_BASE64_H
 
-#else // BREAD_BASE64_IMPLEMENTATION
-// implementation
+// = implementation
+#ifdef BREAD_BASE64_IMPLEMENTATION
 #define EBB64AL 129
 #define EBB64DE 130
 
