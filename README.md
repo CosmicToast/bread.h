@@ -19,6 +19,7 @@ in which case the below list will note this.
 
 ## Library List
 * base64.h (0.2): implementation of "base64" and "base64url" compliant to RFC 4648
+* ini.h (0.1): lax streaming parser for the INI format
 * stdiox.h (0.1): extensions to ISO C stdio.h
 
 ## How do I use them?
