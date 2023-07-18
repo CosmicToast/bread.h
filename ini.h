@@ -82,7 +82,6 @@ static inline int stripright(char *c, const char *s) {
 }
 
 // == character classes
-const char cms[] = "#;";
 const char wss[] = " \t\r\n";
 
 // == parsing utilities
@@ -98,7 +97,7 @@ static int parse_skipwhile(FILE *src, const char *s) {
 		out++;
 	}
 	// hit error
-	return feof(src) ? out : -out; // EOF is normal, other errors are not
+	return ferror(src) ? -out : out;
 }
 
 // skip until hitting a delimiter
@@ -112,21 +111,10 @@ static int parse_skipuntil(FILE *src, const char *s) {
 		out++;
 	}
 	// hit error
-	return feof(src) ? out : -out; // EOF is normal, other errors are not
+	return ferror(src) ? -out : out;
 }
 
-static int parse_skipws(FILE *src) {
-	return parse_skipwhile(src, wss);
-}
-
-static int parse_skipcm(FILE *src) {
-	int c = fgetc(src);
-	if (!isins(c, cms)) {
-		ungetc(c, src);
-		return 0;
-	}
-	return parse_skipuntil(src, "\n");
-}
+#define parse_skipws(src) parse_skipwhile(src, wss)
 
 // parses into ptr as long as getc is in s and maxlen holds
 // if maxlen is exhausted, continue by skipping
@@ -140,7 +128,7 @@ static int parse_while(FILE *src, char *ptr, size_t maxlen, const char *s) {
 		// hit eof while scanning
 		if (*ptr == EOF) {
 			*ptr = 0;
-			return feof(src) ? out : -out;
+			return ferror(src) ? -out : out;
 		} else if (!isins(*ptr, s)) {
 			ungetc(*ptr, src);
 			*ptr = 0;
@@ -154,7 +142,7 @@ static int parse_while(FILE *src, char *ptr, size_t maxlen, const char *s) {
 	if (skipped > 0) {
 		return out + skipped;
 	}
-	return feof(src) ? (out - skipped) : (skipped - out);
+	return ferror(src) ? (skipped - out) : (out - skipped);
 }
 
 // parses into ptr until getc is in s and maxlen holds
@@ -167,7 +155,7 @@ static int parse_until(FILE *src, char *ptr, size_t maxlen, const char *s) {
 		// hit eof while scanning
 		if (*ptr == EOF) {
 			*ptr = 0;
-			return feof(src) ? out : -out;
+			return ferror(src) ? -out : out;
 		} else if (isins(*ptr, s)) {
 			*ptr = 0;
 			return out;
@@ -180,7 +168,7 @@ static int parse_until(FILE *src, char *ptr, size_t maxlen, const char *s) {
 	if (skipped > 0) {
 		return out + skipped;
 	}
-	return feof(src) ? (out - skipped) : (skipped - out);
+	return ferror(src) ? (skipped - out) : (out - skipped);
 }
 
 // == parsers
@@ -224,8 +212,6 @@ static int parse_expr(FILE *src, void *userdata,
 		char *section, char *key, char *value, callback cb) {
 	int len = parse_skipws(src);
 	if (len) return len;
-	len = parse_skipcm(src);
-	if (len) return len;
 
 	int c;
 	switch ((c = fgetc(src))) {
@@ -234,6 +220,10 @@ static int parse_expr(FILE *src, void *userdata,
 		case '[':
 			// section, we want to skip over the [
 			return parse_section(src, section);
+		case '#':
+		case ';':
+			// comment, we don't care about the comment character
+			return parse_skipuntil(src, "\n");
 		default:
 			// a key-value pair
 			ungetc(c, src);
