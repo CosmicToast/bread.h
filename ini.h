@@ -58,21 +58,13 @@ int bread_parse_ini(FILE *src, void *userdata,
 typedef int (*callback)(const char*, const char*, const char*, void*);
 
 // == general utilities
-static inline bool isins(int c, const char *s) {
-	int p;
-	while ((p = *(s++))) {
-		if (c == p) return true;
-	}
-	return false;
-}
-
 // scan c from the right until not in s, set final ptr to 0
 // returns new strlen
 static inline int stripright(char *c, const char *s) {
 	size_t len = strlen(c); // strlen doesn't include terminating 0
 	if (!len) return len; // it's already empty
-	while ((--len) >= 0 && isins(c[len], s)) {}
-	// either isins failed or len is now -1
+	while ((--len) >= 0 && strchr(s, c[len])) {}
+	// either strchr failed or len is now -1
 	if (len < 0) {
 		*c = 0;
 		return 0;
@@ -90,7 +82,7 @@ const char wss[] = " \t\r\n";
 static int parse_skipwhile(FILE *src, const char *s) {
 	int c, out = 0;
 	while ((c = fgetc(src)) != EOF) {
-		if (!isins(c, s)) {
+		if (!strchr(s, c)) {
 			ungetc(c, src);
 			return out;
 		}
@@ -105,7 +97,7 @@ static int parse_skipwhile(FILE *src, const char *s) {
 static int parse_skipuntil(FILE *src, const char *s) {
 	int c, out = 0;
 	while ((c = fgetc(src)) != EOF) {
-		if (isins(c, s)) {
+		if (strchr(s, c)) {
 			return out;
 		}
 		out++;
@@ -129,7 +121,7 @@ static int parse_while(FILE *src, char *ptr, size_t maxlen, const char *s) {
 		if (*ptr == EOF) {
 			*ptr = 0;
 			return ferror(src) ? -out : out;
-		} else if (!isins(*ptr, s)) {
+		} else if (!strchr(s, *ptr)) {
 			ungetc(*ptr, src);
 			*ptr = 0;
 			return out;
@@ -156,7 +148,7 @@ static int parse_until(FILE *src, char *ptr, size_t maxlen, const char *s) {
 		if (*ptr == EOF) {
 			*ptr = 0;
 			return ferror(src) ? -out : out;
-		} else if (isins(*ptr, s)) {
+		} else if (strchr(s, *ptr)) {
 			*ptr = 0;
 			return out;
 		}
