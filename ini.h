@@ -61,7 +61,7 @@ typedef int (*callback)(const char*, const char*, const char*, void*);
 // scan c from the right until not in s, set final ptr to 0
 // returns new strlen
 static inline int stripright(char *c, const char *s) {
-	size_t len = strlen(c); // strlen doesn't include terminating 0
+	ssize_t len = strlen(c); // strlen doesn't include terminating 0
 	if (!len) return len; // it's already empty
 	while ((--len) >= 0 && strchr(s, c[len])) {}
 	// either strchr failed or len is now -1
@@ -113,7 +113,7 @@ static int parse_skipuntil(FILE *src, const char *s) {
 // does not consume the character that follows
 // note that we do not actually use this,
 // but you may want this in case you're writing a different parser with this as the base
-static int parse_while(FILE *src, char *ptr, size_t maxlen, const char *s) {
+static int parse_while(FILE *src, char *ptr, ssize_t maxlen, const char *s) {
 	int out = 0;
 	while (out < maxlen) {
 		*ptr = fgetc(src);
@@ -140,7 +140,7 @@ static int parse_while(FILE *src, char *ptr, size_t maxlen, const char *s) {
 // parses into ptr until getc is in s and maxlen holds
 // if maxlen is exhausted, continue by skipping
 // consumes terminator
-static int parse_until(FILE *src, char *ptr, size_t maxlen, const char *s) {
+static int parse_until(FILE *src, char *ptr, ssize_t maxlen, const char *s) {
 	int out = 0;
 	while (out < maxlen) {
 		*ptr = fgetc(src);
