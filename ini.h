@@ -74,7 +74,7 @@ static inline int stripright(char *c, const char *s) {
 }
 
 // == character classes
-const char wss[] = " \t\r\n";
+const static char wss[] = " \t\r\n";
 
 // == parsing utilities
 // skip as long as the condition holds
@@ -114,19 +114,19 @@ static int parse_skipuntil(FILE *src, const char *s) {
 // note that we do not actually use this,
 // but you may want this in case you're writing a different parser with this as the base
 static int parse_while(FILE *src, char *ptr, ssize_t maxlen, const char *s) {
-	int out = 0;
+	int out = 0, c;
 	while (out < maxlen) {
-		*ptr = fgetc(src);
+		c = fgetc(src);
 		// hit eof while scanning
-		if (*ptr == EOF) {
+		if (c == EOF) {
 			*ptr = 0;
 			return ferror(src) ? -out : out;
-		} else if (!strchr(s, *ptr)) {
-			ungetc(*ptr, src);
+		} else if (!strchr(s, c)) {
+			ungetc(c, src);
 			*ptr = 0;
 			return out;
 		}
-		ptr++; out++;
+		(*ptr++) = c; out++;
 	}
 	// we hit maxlen
 	(*--ptr) = 0;
@@ -141,18 +141,18 @@ static int parse_while(FILE *src, char *ptr, ssize_t maxlen, const char *s) {
 // if maxlen is exhausted, continue by skipping
 // consumes terminator
 static int parse_until(FILE *src, char *ptr, ssize_t maxlen, const char *s) {
-	int out = 0;
+	int out = 0, c;
 	while (out < maxlen) {
-		*ptr = fgetc(src);
+		c = fgetc(src);
 		// hit eof while scanning
-		if (*ptr == EOF) {
+		if (c == EOF) {
 			*ptr = 0;
 			return ferror(src) ? -out : out;
-		} else if (strchr(s, *ptr)) {
+		} else if (strchr(s, c)) {
 			*ptr = 0;
 			return out;
 		}
-		ptr++; out++;
+		(*ptr++) = c; out++;
 	}
 	// we hit maxlen
 	(*--ptr) = 0;
