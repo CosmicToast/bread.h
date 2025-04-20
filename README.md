@@ -18,6 +18,7 @@ Some of them may depend on POSIX rather than pure ISO C,
 in which case the below list will note this.
 
 ## Library List
+* arr.h (0.1): dynamic array based on the vlist data structure
 * base64.h (0.2): implementation of "base64" and "base64url" compliant to RFC 4648
 * ini.h (0.1): lax streaming parser for the INI format
 * stdiox.h (0.1): extensions to ISO C stdio.h
